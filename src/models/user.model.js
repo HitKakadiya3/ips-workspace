@@ -16,7 +16,34 @@ const userSchema = new mongoose.Schema(
         password: {
             type: String,
             required: true
+        },
+        mobileNumber: {
+            type: String,
+            trim: true
+        },
+        dateOfJoining: {
+            type: Date
+        },
+        dateOfBirth: {
+            type: Date
+        },
+        primaryTechnology1: {
+            type: String,
+            trim: true
+        },
+        primaryTechnology2: {
+            type: String,
+            trim: true
+        },
+        intermediateTechnology: {
+            type: String,
+            trim: true
+        },
+        database: {
+            type: String,
+            trim: true
         }
+
     },
     { timestamps: true }
 );
