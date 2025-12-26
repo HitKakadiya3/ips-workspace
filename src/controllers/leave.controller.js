@@ -10,8 +10,25 @@ exports.getLeaveCountsByType = async (req, res) => {
             return res.status(400).json({ message: 'Invalid User ID' });
         }
 
+        const { year } = req.query;
+
+        const match = { user: new mongoose.Types.ObjectId(userId) };
+        if (year !== undefined) {
+            const y = Number(year);
+            if (!Number.isInteger(y) || y < 1900 || y > 3000) {
+                return res.status(400).json({ message: 'Invalid year parameter' });
+            }
+            // match only by year extracted from startDate or endDate
+            match.$expr = {
+                $or: [
+                    { $eq: [{ $year: '$startDate' }, y] },
+                    { $eq: [{ $year: '$endDate' }, y] }
+                ]
+            };
+        }
+
         const counts = await Leave.aggregate([
-            { $match: { user: new mongoose.Types.ObjectId(userId) } },
+            { $match: match },
             { $group: { _id: '$leaveType', count: { $sum: 1 } } }
         ]);
 
