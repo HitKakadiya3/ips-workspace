@@ -50,7 +50,7 @@ module.exports = exports;
 exports.addLeave = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { leaveType, startDate, endDate, reason, status, year } = req.body;
+        const { leaveType, startDate, endDate, reason, status, year, isHalfDay, partOfDay, duration } = req.body;
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).json({ message: 'Invalid User ID' });
@@ -80,13 +80,79 @@ exports.addLeave = async (req, res) => {
             endDate: eDate,
             reason: reason || '',
             status: status || 'Pending',
-            year: leaveYear
+            year: leaveYear,
+            isHalfDay: isHalfDay || false,
+            partOfDay: partOfDay || null,
+            duration: duration || (isHalfDay ? 0.5 : 1)
         });
 
         res.status(201).json({ success: true, data: leaveDoc });
 
     } catch (error) {
         console.error('Add Leave Error:', error);
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+exports.getLeavesByUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { year } = req.query;
+
+        if (!mongoose.Types.ObjectId.isValid(userId)) {
+            return res.status(400).json({ message: 'Invalid User ID' });
+        }
+
+        const pipeline = [
+            { $match: { user: new mongoose.Types.ObjectId(userId) } }
+        ];
+
+        if (year !== undefined) {
+            const y = Number(year);
+            if (!Number.isInteger(y) || y < 1900 || y > 3000) {
+                return res.status(400).json({ message: 'Invalid year parameter' });
+            }
+            pipeline.push({
+                $match: {
+                    $expr: {
+                        $or: [
+                            { $eq: ['$year', y] },
+                            { $eq: [{ $year: '$startDate' }, y] },
+                            { $eq: [{ $year: '$endDate' }, y] }
+                        ]
+                    }
+                }
+            });
+        }
+
+        pipeline.push({ $sort: { startDate: -1 } });
+
+        const leaves = await Leave.aggregate(pipeline);
+
+        res.status(200).json({ success: true, data: leaves });
+
+    } catch (error) {
+        console.error('Get Leaves By User Error:', error);
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
+exports.getLeaveById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid Leave ID' });
+        }
+
+        const leave = await Leave.findById(id).lean();
+        if (!leave) {
+            return res.status(404).json({ message: 'Leave not found' });
+        }
+
+        res.status(200).json({ success: true, data: leave });
+    } catch (error) {
+        console.error('Get Leave By ID Error:', error);
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };

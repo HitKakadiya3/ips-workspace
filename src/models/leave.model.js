@@ -32,6 +32,18 @@ const leaveSchema = new mongoose.Schema(
         year: {
             type: Number,
             required: true
+        },
+        isHalfDay: {
+            type: Boolean,
+            default: false
+        },
+        partOfDay: {
+            type: String,
+            default: null
+        },
+        duration: {
+            type: Number,
+            default: 1
         }
     },
     { timestamps: true }
