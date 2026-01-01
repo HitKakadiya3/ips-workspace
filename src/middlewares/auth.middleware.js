@@ -19,7 +19,8 @@ module.exports = async (req, res, next) => {
 
         req.user = user;
         next();
-    } catch {
+    } catch (error) {
+        console.error('JWT Verification Error:', error.message);
         res.status(401).json({ message: 'Invalid or expired token' });
     }
 };

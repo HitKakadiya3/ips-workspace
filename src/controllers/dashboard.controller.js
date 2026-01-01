@@ -38,7 +38,7 @@ exports.getDashboardData = async (req, res) => {
         ] = await Promise.all([
             Project.find({ assignedUsers: userObjectId }).lean(),
             Timesheet.find({ user: userObjectId }).sort({ date: -1 }).limit(50).lean(),
-            Leave.find({ user: userObjectId }).sort({ startDate: -1 }).lean(),
+            Leave.find({ user: userObjectId, year: new Date().getFullYear() }).sort({ startDate: -1 }).lean(),
             Notice.find({ user: userObjectId }).sort({ date: -1 }).lean(),
             Appreciation.find({ user: userObjectId }).sort({ date: -1 }).lean(),
             Attendance.find({ user: userObjectId }).sort({ date: -1 }).limit(30).lean(),
