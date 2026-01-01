@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/user.model');
-const { generateToken } = require('../utils/jwt');
+const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 
 exports.register = async ({ name, email, password }) => {
     const exists = await User.findOne({ email });
@@ -18,7 +18,8 @@ exports.register = async ({ name, email, password }) => {
 
     return {
         message: 'Registration successful',
-        token: generateToken(user._id),
+        accessToken: generateAccessToken(user._id),
+        refreshToken: generateRefreshToken(user._id),
         user: {
             id: user._id,
             name: user.name,
@@ -40,11 +41,30 @@ exports.login = async ({ email, password }) => {
 
     return {
         message: 'Login successful',
-        token: generateToken(user._id),
+        accessToken: generateAccessToken(user._id),
+        refreshToken: generateRefreshToken(user._id),
         user: {
             id: user._id,
             name: user.name,
             email: user.email
         }
     };
+};
+
+exports.refreshToken = async (token) => {
+    try {
+        const decoded = verifyRefreshToken(token);
+        const user = await User.findById(decoded.id);
+
+        if (!user) {
+            throw { status: 401, message: 'Invalid refresh token' };
+        }
+
+        return {
+            accessToken: generateAccessToken(user._id),
+            refreshToken: generateRefreshToken(user._id)
+        };
+    } catch (error) {
+        throw { status: 401, message: 'Invalid refresh token' };
+    }
 };

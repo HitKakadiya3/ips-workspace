@@ -29,14 +29,15 @@ npm install
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret_key
+REFRESH_TOKEN_SECRET=your_refresh_token_secret_key
 ```
 
-For Generate JWT Secret Key
+For Generate Secret Keys (JWT and Refresh Token)
 ```bash
 node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ```
 
-Copy the generated key and paste it in the `.env` file.
+Copy the generated keys and paste them in the `.env` file as `JWT_SECRET` and `REFRESH_TOKEN_SECRET`.
 
 ### 3. Run the Application
 
