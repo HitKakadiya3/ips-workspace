@@ -2,7 +2,7 @@ const Leave = require('../models/leave.model');
 const User = require('../models/user.model');
 const mongoose = require('mongoose');
 
-exports.getLeaveCountsByType = async (req, res) => {
+exports.getLeaveCountsByType = async (req, res, next) => {
     try {
         const { userId } = req.params;
 
@@ -40,14 +40,13 @@ exports.getLeaveCountsByType = async (req, res) => {
         res.status(200).json({ success: true, data: result });
 
     } catch (error) {
-        console.error('Get Leave Counts Error:', error);
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        next(error);
     }
 };
 
 module.exports = exports;
 
-exports.addLeave = async (req, res) => {
+exports.addLeave = async (req, res, next) => {
     try {
         const { userId } = req.params;
         const { leaveType, startDate, endDate, reason, status, year, isHalfDay, partOfDay, duration } = req.body;
@@ -89,12 +88,11 @@ exports.addLeave = async (req, res) => {
         res.status(201).json({ success: true, data: leaveDoc });
 
     } catch (error) {
-        console.error('Add Leave Error:', error);
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        next(error);
     }
 };
 
-exports.getLeavesByUser = async (req, res) => {
+exports.getLeavesByUser = async (req, res, next) => {
     try {
         const { userId } = req.params;
         const { year } = req.query;
@@ -132,12 +130,11 @@ exports.getLeavesByUser = async (req, res) => {
         res.status(200).json({ success: true, data: leaves });
 
     } catch (error) {
-        console.error('Get Leaves By User Error:', error);
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        next(error);
     }
 };
 
-exports.getLeaveById = async (req, res) => {
+exports.getLeaveById = async (req, res, next) => {
     try {
         const { id } = req.params;
 
@@ -152,12 +149,11 @@ exports.getLeaveById = async (req, res) => {
 
         res.status(200).json({ success: true, data: leave });
     } catch (error) {
-        console.error('Get Leave By ID Error:', error);
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        next(error);
     }
 };
 
-exports.getAllLeaves = async (req, res) => {
+exports.getAllLeaves = async (req, res, next) => {
     try {
         const leaves = await Leave.find()
             .populate('user', 'name email mobileNumber')
@@ -165,7 +161,6 @@ exports.getAllLeaves = async (req, res) => {
 
         res.status(200).json({ success: true, data: leaves });
     } catch (error) {
-        console.error('Get All Leaves Error:', error);
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        next(error);
     }
 };

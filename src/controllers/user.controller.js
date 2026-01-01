@@ -1,7 +1,7 @@
 const User = require('../models/user.model');
 const mongoose = require('mongoose');
 
-exports.updateProfile = async (req, res) => {
+exports.updateProfile = async (req, res, next) => {
     try {
         const { userId } = req.params;
         const updates = req.body;
@@ -32,7 +32,6 @@ exports.updateProfile = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Update Profile Error:', error);
-        res.status(500).json({ message: 'Server Error', error: error.message });
+        next(error);
     }
 };

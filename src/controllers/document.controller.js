@@ -8,7 +8,7 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-exports.uploadDocument = async (req, res) => {
+exports.uploadDocument = async (req, res, next) => {
     try {
         const { title, description, accessType, shareWith } = req.body;
         const files = req.files;
@@ -41,11 +41,11 @@ exports.uploadDocument = async (req, res) => {
             document: newDocument
         });
     } catch (error) {
-        res.status(500).json({ message: 'Error uploading document', error: error.message });
+        next(error);
     }
 };
 
-exports.getDocuments = async (req, res) => {
+exports.getDocuments = async (req, res, next) => {
     try {
         const userId = req.user.id;
 
@@ -65,11 +65,11 @@ exports.getDocuments = async (req, res) => {
 
         res.status(200).json(documents);
     } catch (error) {
-        res.status(500).json({ message: 'Error fetching documents', error: error.message });
+        next(error);
     }
 };
 
-exports.deleteDocument = async (req, res) => {
+exports.deleteDocument = async (req, res, next) => {
     try {
         const { id } = req.params;
         const userId = req.user.id;
@@ -98,6 +98,6 @@ exports.deleteDocument = async (req, res) => {
 
         res.status(200).json({ message: 'Document deleted successfully' });
     } catch (error) {
-        res.status(500).json({ message: 'Error deleting document', error: error.message });
+        next(error);
     }
 };
