@@ -156,3 +156,16 @@ exports.getLeaveById = async (req, res) => {
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
+
+exports.getAllLeaves = async (req, res) => {
+    try {
+        const leaves = await Leave.find()
+            .populate('user', 'name email mobileNumber')
+            .sort({ startDate: -1 });
+
+        res.status(200).json({ success: true, data: leaves });
+    } catch (error) {
+        console.error('Get All Leaves Error:', error);
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};

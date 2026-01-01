@@ -14,4 +14,7 @@ router.post('/user/:userId', authMiddleware, leaveController.addLeave);
 // GET /api/leaves/:id  -> fetch single leave by id
 router.get('/:id', authMiddleware, leaveController.getLeaveById);
 
+// GET /api/leaves -> fetch all leaves
+router.get('/', authMiddleware, leaveController.getAllLeaves);
+
 module.exports = router;

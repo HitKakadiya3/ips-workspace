@@ -1,0 +1,103 @@
+const Document = require('../models/document.model');
+const path = require('path');
+const fs = require('fs');
+
+// Ensure upload directory exists
+const uploadDir = path.join(__dirname, '../uploads/documents');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+exports.uploadDocument = async (req, res) => {
+    try {
+        const { title, description, accessType, shareWith } = req.body;
+        const files = req.files;
+
+        if (!files || files.length === 0) {
+            return res.status(400).json({ message: 'At least one file is required' });
+        }
+
+        const documentFiles = files.map(file => ({
+            fileName: file.filename,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            path: file.path,
+            size: file.size
+        }));
+
+        const newDocument = new Document({
+            title,
+            description,
+            accessType,
+            shareWith: shareWith ? (Array.isArray(shareWith) ? shareWith : [shareWith]) : [],
+            files: documentFiles,
+            uploadedBy: req.user.id
+        });
+
+        await newDocument.save();
+
+        res.status(201).json({
+            message: 'Document uploaded successfully',
+            document: newDocument
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error uploading document', error: error.message });
+    }
+};
+
+exports.getDocuments = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Fetch documents:
+        // 1. Where accessType is Public
+        // 2. Where accessType is Private and uploadedBy is current user
+        // Note: shareWith functionality can be added later if needed, 
+        // but user specifically mentioned private only for owner.
+
+        const documents = await Document.find({
+            $or: [
+                { accessType: 'Public' },
+                { accessType: 'Private', uploadedBy: userId }
+            ]
+        }).populate('uploadedBy', 'name email')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json(documents);
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching documents', error: error.message });
+    }
+};
+
+exports.deleteDocument = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+
+        const document = await Document.findById(id);
+
+        if (!document) {
+            return res.status(404).json({ message: 'Document not found' });
+        }
+
+        // Check ownership
+        if (document.uploadedBy.toString() !== userId) {
+            return res.status(403).json({ message: 'Unauthorized to delete this document' });
+        }
+
+        // Delete files from filesystem
+        if (document.files && document.files.length > 0) {
+            document.files.forEach(file => {
+                if (fs.existsSync(file.path)) {
+                    fs.unlinkSync(file.path);
+                }
+            });
+        }
+
+        await Document.findByIdAndDelete(id);
+
+        res.status(200).json({ message: 'Document deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Error deleting document', error: error.message });
+    }
+};

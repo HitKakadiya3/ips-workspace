@@ -14,7 +14,6 @@ const Certification = require('../models/certification.model');
 exports.getDashboardData = async (req, res) => {
     try {
         const { userId } = req.params;
-        console.log(userId);
 
         if (!mongoose.Types.ObjectId.isValid(userId)) {
             return res.status(400).json({ message: 'Invalid User ID' });
@@ -53,17 +52,6 @@ exports.getDashboardData = async (req, res) => {
             Reward.find({ user: userObjectId }).sort({ date: -1 }).lean(),
             Certification.find({ user: userObjectId }).sort({ issueDate: -1 }).lean()
         ]);
-        console.log(projects,
-            timesheets,
-            leaves,
-            notices,
-            appreciations,
-            attendance,
-            reminders,
-            announcements,
-            internalLinks,
-            rewards,
-            certifications);
         const startOfYear = new Date(new Date().getFullYear(), 0, 1);
 
         const totalProjectsAssigned = projects.length;
@@ -147,7 +135,6 @@ exports.getDashboardData = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Dashboard Data Error:', error);
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
 };
