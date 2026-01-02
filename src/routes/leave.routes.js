@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const leaveController = require('../controllers/leave.controller');
 const authMiddleware = require('../middlewares/auth.middleware');
+const adminMiddleware = require('../middlewares/admin.middleware');
 
 // GET /api/leaves/user/:userId/count
 router.get('/user/:userId/count', authMiddleware, leaveController.getLeaveCountsByType);
@@ -13,6 +14,9 @@ router.post('/user/:userId', authMiddleware, leaveController.addLeave);
 
 // GET /api/leaves/:id  -> fetch single leave by id
 router.get('/:id', authMiddleware, leaveController.getLeaveById);
+
+// PATCH /api/leaves/:id -> update leave status (Admin only)
+router.patch('/:id', authMiddleware, adminMiddleware, leaveController.updateLeaveStatus);
 
 // GET /api/leaves -> fetch all leaves
 router.get('/', authMiddleware, leaveController.getAllLeaves);

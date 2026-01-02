@@ -164,3 +164,32 @@ exports.getAllLeaves = async (req, res, next) => {
         next(error);
     }
 };
+
+exports.updateLeaveStatus = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid Leave ID' });
+        }
+
+        if (!['Approved', 'Rejected', 'Pending'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid status. Must be Approved, Rejected, or Pending' });
+        }
+
+        const leave = await Leave.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true, runValidators: true }
+        );
+
+        if (!leave) {
+            return res.status(404).json({ message: 'Leave not found' });
+        }
+
+        res.status(200).json({ success: true, data: leave });
+    } catch (error) {
+        next(error);
+    }
+};
