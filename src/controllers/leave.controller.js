@@ -155,11 +155,40 @@ exports.getLeaveById = async (req, res, next) => {
 
 exports.getAllLeaves = async (req, res, next) => {
     try {
-        const leaves = await Leave.find()
-            .populate('user', 'name email mobileNumber')
-            .sort({ startDate: -1 });
+        const { status } = req.query;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
 
-        res.status(200).json({ success: true, data: leaves });
+        const sortBy = req.query.sortBy || 'startDate';
+        const order = req.query.order === 'asc' ? 1 : -1;
+
+        const filter = {};
+        if (status && status !== 'all') {
+            // Capitalize first letter to match enum (Pending, Approved, Rejected)
+            const formattedStatus = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+            filter.status = formattedStatus;
+        }
+
+        const totalItems = await Leave.countDocuments(filter);
+        const totalPages = Math.ceil(totalItems / limit);
+
+        const leaves = await Leave.find(filter)
+            .populate('user', 'name email mobileNumber')
+            .sort({ [sortBy]: order })
+            .skip(skip)
+            .limit(limit);
+
+        res.status(200).json({
+            success: true,
+            data: leaves,
+            pagination: {
+                totalItems,
+                totalPages,
+                currentPage: page,
+                limit
+            }
+        });
     } catch (error) {
         next(error);
     }
