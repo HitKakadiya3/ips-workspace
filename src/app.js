@@ -10,7 +10,7 @@ const errorMiddleware = require('./middlewares/error.middleware');
 const app = express();
 
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 5 * 60 * 1000, // 5 minutes
     limit: 50,
     message: 'Too many requests from this IP, please try again after 15 minutes'
 });
