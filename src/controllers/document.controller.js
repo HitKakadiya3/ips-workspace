@@ -1,4 +1,5 @@
 const Document = require('../models/document.model');
+const CacheAccess = require('../services/cacheAccess');
 const path = require('path');
 const fs = require('fs');
 
@@ -36,6 +37,9 @@ exports.uploadDocument = async (req, res, next) => {
 
         await newDocument.save();
 
+        // Invalidate cache
+        await CacheAccess.del(`documents:${req.user.id}`);
+
         res.status(201).json({
             message: 'Document uploaded successfully',
             document: newDocument
@@ -55,13 +59,15 @@ exports.getDocuments = async (req, res, next) => {
         // Note: shareWith functionality can be added later if needed, 
         // but user specifically mentioned private only for owner.
 
-        const documents = await Document.find({
-            $or: [
-                { accessType: 'Public' },
-                { accessType: 'Private', uploadedBy: userId }
-            ]
-        }).populate('uploadedBy', 'name email')
-            .sort({ createdAt: -1 });
+        const documents = await CacheAccess.remember(`documents:${userId}`, 300, async () => {
+            return await Document.find({
+                $or: [
+                    { accessType: 'Public' },
+                    { accessType: 'Private', uploadedBy: userId }
+                ]
+            }).populate('uploadedBy', 'name email')
+                .sort({ createdAt: -1 });
+        });
 
         res.status(200).json(documents);
     } catch (error) {
@@ -95,6 +101,9 @@ exports.deleteDocument = async (req, res, next) => {
         }
 
         await Document.findByIdAndDelete(id);
+
+        // Invalidate cache
+        await CacheAccess.del(`documents:${userId}`);
 
         res.status(200).json({ message: 'Document deleted successfully' });
     } catch (error) {

@@ -1,6 +1,7 @@
 const Leave = require('../models/leave.model');
 const User = require('../models/user.model');
 const mongoose = require('mongoose');
+const CacheAccess = require('../services/cacheAccess');
 
 exports.getLeaveCountsByType = async (req, res, next) => {
     try {
@@ -27,15 +28,20 @@ exports.getLeaveCountsByType = async (req, res, next) => {
             };
         }
 
-        const counts = await Leave.aggregate([
-            { $match: match },
-            { $group: { _id: '$leaveType', count: { $sum: 1 } } }
-        ]);
-
         const leaveTypes = (Leave.schema.path('leaveType') && Leave.schema.path('leaveType').enumValues) || ['Personal', 'Unpaid', 'Ad-hoc', 'Sick', 'Casual', 'Other'];
-        const result = {};
-        leaveTypes.forEach(t => { result[t] = 0; });
-        counts.forEach(c => { result[c._id] = c.count; });
+
+        const cacheKey = `leaveCounts:${userId}:${year || 'all'}`;
+        const result = await CacheAccess.remember(cacheKey, 300, async () => {
+            const counts = await Leave.aggregate([
+                { $match: match },
+                { $group: { _id: '$leaveType', count: { $sum: 1 } } }
+            ]);
+
+            const resObj = {};
+            leaveTypes.forEach(t => { resObj[t] = 0; });
+            counts.forEach(c => { resObj[c._id] = c.count; });
+            return resObj;
+        });
 
         res.status(200).json({ success: true, data: result });
 
@@ -87,6 +93,16 @@ exports.addLeave = async (req, res, next) => {
 
         res.status(201).json({ success: true, data: leaveDoc });
 
+        // Invalidate caches
+        await Promise.all([
+            CacheAccess.del(`leaveCounts:${userId}:all`),
+            CacheAccess.del(`leaveCounts:${userId}:${leaveYear}`),
+            CacheAccess.del(`leaves:${userId}:all`),
+            CacheAccess.del(`leaves:${userId}:${leaveYear}`),
+            CacheAccess.del(`dashboard:${userId}`),
+            CacheAccess.del(`leaveStats`)
+        ]);
+
     } catch (error) {
         next(error);
     }
@@ -125,7 +141,10 @@ exports.getLeavesByUser = async (req, res, next) => {
 
         pipeline.push({ $sort: { startDate: -1 } });
 
-        const leaves = await Leave.aggregate(pipeline);
+        const cacheKey = `leaves:${userId}:${year || 'all'}`;
+        const leaves = await CacheAccess.remember(cacheKey, 300, async () => {
+            return await Leave.aggregate(pipeline);
+        });
 
         res.status(200).json({ success: true, data: leaves });
 
@@ -142,7 +161,10 @@ exports.getLeaveById = async (req, res, next) => {
             return res.status(400).json({ message: 'Invalid Leave ID' });
         }
 
-        const leave = await Leave.findById(id).lean();
+        const leave = await CacheAccess.remember(`leave:${id}`, 3600, async () => {
+            return await Leave.findById(id).lean();
+        });
+
         if (!leave) {
             return res.status(404).json({ message: 'Leave not found' });
         }
@@ -170,24 +192,33 @@ exports.getAllLeaves = async (req, res, next) => {
             filter.status = formattedStatus;
         }
 
-        const totalItems = await Leave.countDocuments(filter);
-        const totalPages = Math.ceil(totalItems / limit);
+        const cacheKey = `leaves:all:${status || 'all'}:${page}:${limit}:${sortBy}:${order}`;
 
-        const leaves = await Leave.find(filter)
-            .populate('user', 'name email mobileNumber')
-            .sort({ [sortBy]: order })
-            .skip(skip)
-            .limit(limit);
+        const result = await CacheAccess.remember(cacheKey, 300, async () => {
+            const totalItems = await Leave.countDocuments(filter);
+            const totalPages = Math.ceil(totalItems / limit);
+
+            const leaves = await Leave.find(filter)
+                .populate('user', 'name email mobileNumber')
+                .sort({ [sortBy]: order })
+                .skip(skip)
+                .limit(limit);
+
+            return {
+                leaves,
+                pagination: {
+                    totalItems,
+                    totalPages,
+                    currentPage: page,
+                    limit
+                }
+            };
+        });
 
         res.status(200).json({
             success: true,
-            data: leaves,
-            pagination: {
-                totalItems,
-                totalPages,
-                currentPage: page,
-                limit
-            }
+            data: result.leaves,
+            pagination: result.pagination
         });
     } catch (error) {
         next(error);

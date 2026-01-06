@@ -11,7 +11,9 @@ const InternalLink = require('../models/internalLink.model');
 const Reward = require('../models/reward.model');
 const Certification = require('../models/certification.model');
 
-exports.getDashboardData = async (req, res) => {
+const CacheAccess = require('../services/cacheAccess');
+
+exports.getDashboardData = async (req, res, next) => {
     try {
         const { userId } = req.params;
 
@@ -19,87 +21,87 @@ exports.getDashboardData = async (req, res) => {
             return res.status(400).json({ message: 'Invalid User ID' });
         }
 
-        const userObjectId = new mongoose.Types.ObjectId(userId);
+        const cacheKey = `dashboard:${userId}`;
+        const data = await CacheAccess.remember(cacheKey, 300, async () => {
+            const userObjectId = new mongoose.Types.ObjectId(userId);
 
 
-        // Parallelize all queries for performance
-        const [
-            projects,
-            timesheets,
-            leaves,
-            notices,
-            appreciations,
-            attendance,
-            reminders,
-            announcements,
-            internalLinks,
-            rewards,
-            certifications
-        ] = await Promise.all([
-            Project.find({ assignedUsers: userObjectId }).lean(),
-            Timesheet.find({ user: userObjectId }).sort({ date: -1 }).limit(50).lean(),
-            Leave.find({ user: userObjectId, year: new Date().getFullYear() }).sort({ startDate: -1 }).lean(),
-            Notice.find({ user: userObjectId }).sort({ date: -1 }).lean(),
-            Appreciation.find({ user: userObjectId }).sort({ date: -1 }).lean(),
-            Attendance.find({ user: userObjectId }).sort({ date: -1 }).limit(30).lean(),
-            Reminder.find({ user: userObjectId }).sort({ dueDate: 1 }).lean(),
-            Announcement.find({
-                $or: [{ type: 'General' }, { user: userObjectId }, { type: 'Holiday' }]
-            }).sort({ date: -1 }).limit(10).lean(),
-            InternalLink.find({
-                $or: [{ user: { $exists: false } }, { user: userObjectId }]
-            }).sort({ order: 1 }).lean(),
-            Reward.find({ user: userObjectId }).sort({ date: -1 }).lean(),
-            Certification.find({ user: userObjectId }).sort({ issueDate: -1 }).lean()
-        ]);
-        const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+            // Parallelize all queries for performance
+            const [
+                projects,
+                timesheets,
+                leaves,
+                notices,
+                appreciations,
+                attendance,
+                reminders,
+                announcements,
+                internalLinks,
+                rewards,
+                certifications
+            ] = await Promise.all([
+                Project.find({ assignedUsers: userObjectId }).lean(),
+                Timesheet.find({ user: userObjectId }).sort({ date: -1 }).limit(50).lean(),
+                Leave.find({ user: userObjectId, year: new Date().getFullYear() }).sort({ startDate: -1 }).lean(),
+                Notice.find({ user: userObjectId }).sort({ date: -1 }).lean(),
+                Appreciation.find({ user: userObjectId }).sort({ date: -1 }).lean(),
+                Attendance.find({ user: userObjectId }).sort({ date: -1 }).limit(30).lean(),
+                Reminder.find({ user: userObjectId }).sort({ dueDate: 1 }).lean(),
+                Announcement.find({
+                    $or: [{ type: 'General' }, { user: userObjectId }, { type: 'Holiday' }]
+                }).sort({ date: -1 }).limit(10).lean(),
+                InternalLink.find({
+                    $or: [{ user: { $exists: false } }, { user: userObjectId }]
+                }).sort({ order: 1 }).lean(),
+                Reward.find({ user: userObjectId }).sort({ date: -1 }).lean(),
+                Certification.find({ user: userObjectId }).sort({ issueDate: -1 }).lean()
+            ]);
+            const startOfYear = new Date(new Date().getFullYear(), 0, 1);
 
-        const totalProjectsAssigned = projects.length;
-        const overdueProjectsCount = projects.filter(p => p.status === 'Overdue').length;
+            const totalProjectsAssigned = projects.length;
+            const overdueProjectsCount = projects.filter(p => p.status === 'Overdue').length;
 
-        const projectMap = projects.reduce((acc, p) => {
-            acc[p._id.toString()] = p;
-            return acc;
-        }, {});
+            const projectMap = projects.reduce((acc, p) => {
+                acc[p._id.toString()] = p;
+                return acc;
+            }, {});
 
-        let totalBillableHours = 0;
-        let totalBenchHours = 0;
-        let timesheetNotFilledCount = 0;
+            let totalBillableHours = 0;
+            let totalBenchHours = 0;
+            let timesheetNotFilledCount = 0;
 
-        const yearlyTimesheetStats = await Timesheet.aggregate([
-            { $match: { user: userObjectId, date: { $gte: startOfYear } } },
-            { $lookup: { from: 'projects', localField: 'project', foreignField: '_id', as: 'projectInfo' } },
-            { $unwind: '$projectInfo' },
-            {
-                $group: {
-                    _id: null,
-                    billable: {
-                        $sum: { $cond: [{ $eq: ['$projectInfo.isBillable', true] }, '$hours', 0] }
-                    },
-                    bench: {
-                        $sum: { $cond: [{ $eq: ['$projectInfo.isBillable', false] }, '$hours', 0] }
+            const yearlyTimesheetStats = await Timesheet.aggregate([
+                { $match: { user: userObjectId, date: { $gte: startOfYear } } },
+                { $lookup: { from: 'projects', localField: 'project', foreignField: '_id', as: 'projectInfo' } },
+                { $unwind: '$projectInfo' },
+                {
+                    $group: {
+                        _id: null,
+                        billable: {
+                            $sum: { $cond: [{ $eq: ['$projectInfo.isBillable', true] }, '$hours', 0] }
+                        },
+                        bench: {
+                            $sum: { $cond: [{ $eq: ['$projectInfo.isBillable', false] }, '$hours', 0] }
+                        }
                     }
                 }
+            ]);
+
+            if (yearlyTimesheetStats.length > 0) {
+                totalBillableHours = yearlyTimesheetStats[0].billable;
+                totalBenchHours = yearlyTimesheetStats[0].bench;
             }
-        ]);
 
-        if (yearlyTimesheetStats.length > 0) {
-            totalBillableHours = yearlyTimesheetStats[0].billable;
-            totalBenchHours = yearlyTimesheetStats[0].bench;
-        }
+            const personalLeaves = leaves.filter(l => l.leaveType === 'Personal' && l.status === 'Approved').length;
+            const totalPersonalLeaves = 16;
 
-        const personalLeaves = leaves.filter(l => l.leaveType === 'Personal' && l.status === 'Approved').length;
-        const totalPersonalLeaves = 16;
+            const unpaidLeaves = leaves.filter(l => l.leaveType === 'Unpaid').length;
+            const takenLeaves = leaves.length;
+            const adHocLeaves = leaves.filter(l => l.leaveType === 'Ad-hoc').length;
 
-        const unpaidLeaves = leaves.filter(l => l.leaveType === 'Unpaid').length;
-        const takenLeaves = leaves.length;
-        const adHocLeaves = leaves.filter(l => l.leaveType === 'Ad-hoc').length;
+            const shortDays = attendance.filter(a => a.isShortDay && a.date >= startOfYear).length;
 
-        const shortDays = attendance.filter(a => a.isShortDay && a.date >= startOfYear).length;
-
-        res.status(200).json({
-            success: true,
-            data: {
+            return {
                 widgets: {
                     projects: {
                         totalAssigned: totalProjectsAssigned,
@@ -131,7 +133,12 @@ exports.getDashboardData = async (req, res) => {
                     certifications: certifications,
                     leavesNext5Days: [] // Placeholder: Requires filtering leaves by date range
                 }
-            }
+            };
+        });
+
+        res.status(200).json({
+            success: true,
+            data: data
         });
 
     } catch (error) {
