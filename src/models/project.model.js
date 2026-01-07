@@ -17,8 +17,20 @@ const projectSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ['Active', 'Completed', 'Overdue', 'On Hold'],
+            enum: ['Active', 'Completed', 'Overdue', 'On Hold', 'In Progress'],
             default: 'Active'
+        },
+        projectType: {
+            type: String,
+            trim: true
+        },
+        clientName: {
+            type: String,
+            trim: true
+        },
+        pmName: {
+            type: String,
+            trim: true
         },
         assignedUsers: [{
             type: mongoose.Schema.Types.ObjectId,

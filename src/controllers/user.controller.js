@@ -31,7 +31,47 @@ exports.updateProfile = async (req, res, next) => {
             data: user
         });
 
+
     } catch (error) {
         next(error);
     }
 };
+
+exports.getAllUsers = async (req, res, next) => {
+    try {
+        const { page = 1, limit = 10, search, role } = req.query;
+        const query = { role: { $not: { $regex: /^admin$/i } } };
+
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        if (role) {
+            if (role.toLowerCase() === 'admin') {
+                return res.status(200).json({ users: [], totalPages: 0, currentPage: Number(page), totalUsers: 0 });
+            }
+            query.role = role;
+        }
+
+        const users = await User.find(query)
+            .select('-password')
+            .limit(limit * 1)
+            .skip((page - 1) * limit)
+            .sort({ createdAt: -1 });
+
+        const count = await User.countDocuments(query);
+
+        res.status(200).json({
+            users,
+            totalPages: Math.ceil(count / limit),
+            currentPage: Number(page),
+            totalUsers: count
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+

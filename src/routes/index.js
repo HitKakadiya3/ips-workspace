@@ -7,6 +7,7 @@ router.use('/dashboard', require('./dashboard.routes'));
 router.use('/documents', require('./document.routes'));
 router.use('/transactions', require('./transaction.routes'));
 router.use('/aggregates', require('./aggregate.routes'));
+router.use('/projects', require('./project.routes'));
 
 router.get('/health', (req, res) => {
     res.json({ status: 'API is running' });

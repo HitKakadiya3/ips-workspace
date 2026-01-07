@@ -9,5 +9,6 @@ router.get('/me', authMiddleware, (req, res) => {
     });
 });
 router.patch('/:userId', userController.updateProfile);
+router.get('/', authMiddleware, userController.getAllUsers);
 
 module.exports = router;
