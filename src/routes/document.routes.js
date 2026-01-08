@@ -22,6 +22,7 @@ const upload = multer({
 
 router.post('/', authMiddleware, upload.array('files'), documentController.uploadDocument);
 router.get('/', authMiddleware, documentController.getDocuments);
+router.get('/download/:filename', authMiddleware, documentController.downloadDocument);
 router.delete('/:id', authMiddleware, documentController.deleteDocument);
 
 module.exports = router;

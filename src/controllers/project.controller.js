@@ -8,11 +8,23 @@ const mongoose = require('mongoose');
  */
 exports.getProjects = async (req, res, next) => {
     try {
+        const { search } = req.query;
         let query = {};
 
         // If user is not an admin, only show projects they are assigned to
         if (req.user.role.toLowerCase() !== 'admin') {
             query.assignedUsers = req.user._id;
+        }
+
+        // Add search functionality
+        if (search) {
+            const searchRegex = new RegExp(search, 'i');
+            query.$or = [
+                { name: searchRegex },
+                { clientName: searchRegex },
+                { pmName: searchRegex },
+                { projectType: searchRegex }
+            ];
         }
 
         const projects = await Project.find(query)

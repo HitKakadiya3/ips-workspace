@@ -110,3 +110,26 @@ exports.deleteDocument = async (req, res, next) => {
         next(error);
     }
 };
+
+exports.downloadDocument = async (req, res, next) => {
+    try {
+        const { filename } = req.params;
+        const filePath = path.join(__dirname, '../uploads/documents', filename);
+
+        if (!fs.existsSync(filePath)) {
+            return res.status(404).json({ message: 'File not found' });
+        }
+
+        res.download(filePath, filename, (err) => {
+            if (err) {
+                if (res.headersSent) {
+                    // Headers already sent, cannot send another response
+                    return;
+                }
+                next(err);
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
