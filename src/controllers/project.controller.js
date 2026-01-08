@@ -112,3 +112,61 @@ exports.getProjectById = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * @desc    Create a new project
+ * @route   POST /api/projects
+ * @access  Private (Admin only)
+ */
+exports.createProject = async (req, res, next) => {
+    try {
+        // Authorization check: Only Admin can create projects
+        if (req.user.role.toLowerCase() !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Not authorized to create projects'
+            });
+        }
+
+        const {
+            name,
+            startDate,
+            deadline,
+            status,
+            projectType,
+            clientName,
+            pmName,
+            assignedUsers,
+            assignees, // Added support for 'assignees'
+            isBillable
+        } = req.body;
+
+        // Validation
+        if (!name || !startDate) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide name and startDate'
+            });
+        }
+
+        const project = await Project.create({
+            name,
+            startDate,
+            deadline,
+            status: status || 'Active',
+            projectType,
+            clientName,
+            pmName,
+            assignedUsers: assignedUsers || assignees || [], // Map assignees to assignedUsers
+            isBillable: isBillable !== undefined ? isBillable : true
+        });
+
+        res.status(201).json({
+            success: true,
+            data: project
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};

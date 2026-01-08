@@ -12,8 +12,7 @@ const projectSchema = new mongoose.Schema(
             required: true
         },
         deadline: {
-            type: Date,
-            required: true
+            type: Date
         },
         status: {
             type: String,

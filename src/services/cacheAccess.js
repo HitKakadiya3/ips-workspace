@@ -23,7 +23,7 @@ class CacheAccess {
     set = async (key, data, expiry) => {
         const client = await this.getClient();
         if (_.isEmpty(expiry) && expiry !== 0) {
-            expiry = 12 * 60 * 60; // 12h
+            expiry = 3 * 60; // 3min
         }
         // ioredis syntax: set(key, value, 'EX', seconds)
         // Ensure data is stringified
