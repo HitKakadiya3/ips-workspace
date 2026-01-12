@@ -12,9 +12,20 @@ const timesheetSchema = new mongoose.Schema(
             ref: 'Project',
             required: true
         },
+        task: {
+            type: String,
+            required: true,
+            trim: true
+        },
+        billingType: {
+            type: String,
+            enum: ['Billable', 'Non Billable'],
+            required: true
+        },
         date: {
             type: Date,
-            required: true
+            required: true,
+            default: Date.now
         },
         hours: {
             type: Number,
@@ -27,8 +38,8 @@ const timesheetSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ['Submitted', 'Approved', 'Rejected'],
-            default: 'Submitted'
+            enum: ['Pending', 'Approved', 'Rejected'],
+            default: 'Pending'
         }
     },
     { timestamps: true }
