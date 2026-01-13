@@ -8,13 +8,13 @@ const Timesheet = require('../models/timesheet.model');
  */
 const saveTimesheet = async (req, res) => {
     try {
-        const { billingType, description, project, task, timeEntry, date } = req.body;
+        const { billingType, description, project, task, hours, date } = req.body;
 
-        // Convert timeEntry (HH:mm) to decimal hours
-        let hours = 0;
-        if (timeEntry) {
-            const [h, m] = timeEntry.split(':').map(Number);
-            hours = h + (m / 60);
+        // Convert hours (HH:mm) to decimal hours
+        let decimalHours = 0;
+        if (hours) {
+            const [h, m] = hours.split(':').map(Number);
+            decimalHours = h + (m / 60);
         }
 
         const timesheet = new Timesheet({
@@ -23,7 +23,7 @@ const saveTimesheet = async (req, res) => {
             task,
             billingType,
             description,
-            hours,
+            hours: decimalHours,
             date: date || new Date(),
             status: 'Pending'
         });
@@ -85,7 +85,39 @@ const getTimesheets = async (req, res) => {
 
         if (status) filter.status = status;
 
-        const { populate } = req.query;
+        const { billingType, project, task, startDate, endDate } = req.query;
+
+        if (billingType) {
+            filter.billingType = billingType;
+        }
+
+        if (project) {
+            filter.project = project;
+        }
+
+        if (task) {
+            filter.task = { $regex: task, $options: 'i' };
+        }
+
+        if (startDate || endDate) {
+            filter.date = {};
+            if (startDate) {
+                const start = new Date(startDate);
+                if (!isNaN(start.getTime())) {
+                    start.setHours(0, 0, 0, 0);
+                    filter.date.$gte = start;
+                }
+            }
+            if (endDate) {
+                const end = new Date(endDate);
+                if (!isNaN(end.getTime())) {
+                    end.setHours(23, 59, 59, 999);
+                    filter.date.$lte = end;
+                }
+            }
+        }
+
+        const { populate, page, limit } = req.query;
 
         let query = Timesheet.find(filter).sort({ createdAt: -1 });
 
@@ -95,6 +127,27 @@ const getTimesheets = async (req, res) => {
         } else {
             // Project model uses `name`, and User model uses `name` field.
             query = query.populate('project', 'name').populate('user', 'name email');
+        }
+
+        // Pagination Logic
+        if (page && limit) {
+            const pageNum = parseInt(page, 10);
+            const limitNum = parseInt(limit, 10);
+            const skip = (pageNum - 1) * limitNum;
+
+            const total = await Timesheet.countDocuments(filter);
+            const timesheets = await query.skip(skip).limit(limitNum);
+
+            return res.status(200).json({
+                success: true,
+                data: timesheets,
+                pagination: {
+                    total,
+                    page: pageNum,
+                    limit: limitNum,
+                    pages: Math.ceil(total / limitNum)
+                }
+            });
         }
 
         const timesheets = await query;
@@ -126,7 +179,136 @@ const getTimesheets = async (req, res) => {
     }
 };
 
+/**
+ * Update timesheet status
+ * @route PATCH /api/timesheets/:id/status
+ * @access Private/Admin (should be admin ideally, or authorized user)
+ */
+const updateTimesheetStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (!['Approved', 'Rejected', 'Pending'].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid status. Allowed values: Approved, Rejected, Pending'
+            });
+        }
+
+        const timesheet = await Timesheet.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true, runValidators: true }
+        );
+
+        if (!timesheet) {
+            return res.status(404).json({
+                success: false,
+                message: 'Timesheet not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Timesheet status updated to ${status}`,
+            data: timesheet
+        });
+    } catch (error) {
+        console.error('Error updating timesheet status:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Internal Server Error'
+        });
+    }
+};
+
+/**
+ * Fetch timesheets for a specific user for a specific day
+ * @route GET /api/timesheets/user/:userId/daily
+ * @access Private
+ */
+const getDailyTimesheets = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { date } = req.query;
+
+        // Base date is either provided or today
+        const targetDate = date ? new Date(date) : new Date();
+
+        // Validate date
+        if (isNaN(targetDate.getTime())) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid date format'
+            });
+        }
+
+        // Start of day
+        const startOfDay = new Date(targetDate);
+        startOfDay.setHours(0, 0, 0, 0);
+
+        // End of day
+        const endOfDay = new Date(targetDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const timesheets = await Timesheet.find({
+            user: userId,
+            date: { $gte: startOfDay, $lte: endOfDay }
+        })
+            .populate('project', 'name')
+            .populate('user', 'name email')
+            .sort({ date: -1 });
+
+        res.status(200).json({
+            success: true,
+            count: timesheets.length,
+            data: timesheets
+        });
+    } catch (error) {
+        console.error('Error fetching daily timesheets:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Internal Server Error'
+        });
+    }
+};
+
+/**
+ * Delete a timesheet entry
+ * @route DELETE /api/timesheets/:id
+ * @access Private
+ */
+const deleteTimesheet = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const timesheet = await Timesheet.findByIdAndDelete(id);
+
+        if (!timesheet) {
+            return res.status(404).json({
+                success: false,
+                message: 'Timesheet not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Timesheet deleted successfully'
+        });
+    } catch (error) {
+        console.error('Error deleting timesheet:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Internal Server Error'
+        });
+    }
+};
+
 module.exports = {
     saveTimesheet,
-    getTimesheets
+    getTimesheets,
+    updateTimesheetStatus,
+    getDailyTimesheets,
+    deleteTimesheet
 };
