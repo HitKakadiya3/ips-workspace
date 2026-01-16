@@ -12,4 +12,7 @@ router.get('/', authMiddleware, adminMiddleware, wfhController.getWFHRequests);
 // GET /api/wfh/user/:userId -> Get WFH requests for a specific user
 router.get('/user/:userId', authMiddleware, wfhController.getWFHRequestsByUser);
 
+// PATCH /api/wfh/:id/status -> Update WFH request status (Admin only)
+router.patch('/:id/status', authMiddleware, adminMiddleware, wfhController.updateWFHStatus);
+
 module.exports = router;

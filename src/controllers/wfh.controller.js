@@ -119,3 +119,32 @@ exports.getWFHRequestsByUser = async (req, res, next) => {
         next(error);
     }
 };
+
+exports.updateWFHStatus = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: 'Invalid WFH ID' });
+        }
+
+        if (!['Approved', 'Rejected', 'Pending'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid status. Must be Approved, Rejected, or Pending' });
+        }
+
+        const wfh = await WFH.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true, runValidators: true }
+        );
+
+        if (!wfh) {
+            return res.status(404).json({ message: 'WFH request not found' });
+        }
+
+        res.status(200).json({ success: true, data: wfh });
+    } catch (error) {
+        next(error);
+    }
+};
