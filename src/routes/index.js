@@ -10,6 +10,7 @@ router.use('/aggregates', require('./aggregate.routes'));
 router.use('/projects', require('./project.routes'));
 router.use('/timesheets', require('./timesheet.routes'));
 router.use('/wfh', require('./wfh.routes'));
+router.use('/announcements', require('./announcement.routes'));
 
 router.get('/health', (req, res) => {
     res.json({ status: 'API is running' });

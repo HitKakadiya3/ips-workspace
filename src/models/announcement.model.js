@@ -2,32 +2,44 @@ const mongoose = require('mongoose');
 
 const announcementSchema = new mongoose.Schema(
     {
-        user: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
-        },
         title: {
             type: String,
             required: true,
             trim: true
         },
-        content: {
+        description: {
             type: String,
-            required: true
+            required: true,
+            trim: true
         },
         date: {
             type: Date,
             default: Date.now
         },
-        type: {
-            type: String,
-            enum: ['Event', 'News', 'Holiday', 'General'],
-            default: 'General'
-        },
         priority: {
             type: String,
             enum: ['Low', 'Medium', 'High'],
             default: 'Medium'
+        },
+        type: {
+            type: String,
+            default: 'General'
+        },
+        attachment: {
+            type: String
+        },
+        createdBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true
+        },
+        authorName: {
+            type: String,
+            required: true
+        },
+        isActive: {
+            type: Boolean,
+            default: true
         }
     },
     { timestamps: true }
