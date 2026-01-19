@@ -49,7 +49,7 @@ exports.addAnnouncement = async (req, res, next) => {
 
         if (req.file) {
             // Store the path relative to the uploads folder for clean URLs
-            announcementData.attachment = req.file.path.replace(/\\/g, '/').replace(/^src\//, '/');
+            announcementData.attachment = req.file.path.replace(/\\/g, '/').replace(/^src\//, '').replace(/^\//, '');
         }
 
         const announcement = await Announcement.create(announcementData);
