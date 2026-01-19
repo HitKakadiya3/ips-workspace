@@ -5,6 +5,7 @@ const noticeAppreciationController = require('../controllers/noticeAppreciation.
 // const { protect, authorize } = require('../middleware/auth'); 
 
 router.get('/', noticeAppreciationController.getNoticeAppreciations);
+router.get('/:id', noticeAppreciationController.getNoticeAppreciationById);
 router.post('/', noticeAppreciationController.addNoticeAppreciation);
 
 module.exports = router;
