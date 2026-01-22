@@ -2,8 +2,16 @@ const NoticeAppreciation = require('../models/noticeAppreciation.model');
 
 exports.getNoticeAppreciations = async (req, res, next) => {
     try {
-        const { type, subType, date, page = 1, limit = 10 } = req.query;
+        const { type, subType, date, userId, page = 1, limit = 10 } = req.query;
         const query = { isActive: true };
+
+        // Role-based filtering: Admin sees all (but can filter by userId), others see only their own
+        const userRole = req.user?.role?.toLowerCase();
+        if (userRole !== 'admin') {
+            query.user = req.user._id;
+        } else if (userId) {
+            query.user = userId;
+        }
 
         if (type) {
             query.type = type;
@@ -56,6 +64,13 @@ exports.addNoticeAppreciation = async (req, res, next) => {
     try {
         const { user, type, subType, project, kpiCategory, title, description, date, severity, awardedBy } = req.body;
 
+        if (!user || !type || !subType || !title || !description) {
+            return res.status(400).json({
+                success: false,
+                message: 'User, type, subType, title, and description are required'
+            });
+        }
+
         const newData = await NoticeAppreciation.create({
             user,
             type,
@@ -98,6 +113,32 @@ exports.getNoticeAppreciationById = async (req, res, next) => {
         res.status(200).json({
             success: true,
             data
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.deleteNoticeAppreciation = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        const data = await NoticeAppreciation.findByIdAndUpdate(
+            id,
+            { isActive: false },
+            { new: true }
+        );
+
+        if (!data) {
+            return res.status(404).json({
+                success: false,
+                message: 'Notice or Appreciation not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Notice or Appreciation deleted successfully'
         });
     } catch (error) {
         next(error);
